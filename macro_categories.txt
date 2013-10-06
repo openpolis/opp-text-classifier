@@ -1,0 +1,15 @@
+id	denominazione
+1	agricoltura, pesca e allevamento
+2	ambiente, territorio
+7	casa e urbanistica
+10	societa' e cultura
+13	diritto
+18	economia
+20	mondo
+24	imprese
+27	scuola, universita' e scienza
+28	lavoro e previdenza
+29	localita'
+35	pubblica amministrazione
+38	salute e assistenza
+45	trasporti e infrastrutture

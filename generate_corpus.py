@@ -4,7 +4,8 @@ import MySQLdb
 import os, os.path
 from HTMLParser import HTMLParser
 import codecs
-from nltk import OrderedDict
+from nltk import RegexpTokenizer
+from nltk.corpus import stopwords
 
 __author__ = 'guglielmo'
 
@@ -20,9 +21,18 @@ usage::
     python generate_corpus.py --help
 
 
-example::
-    python generate_corpus.py --db=op_openparlamento --act-types=3,4,5,6 --delete --limit=5000 ../corpora/opp/interrogazioni training
-    python generate_corpus.py --db=op_openparlamento --act-types=3,4,5,6 --delete --offset=5001 --limit=5000 ../corpora/opp/interrogazioni test
+examples::
+    python generate_corpus.py --db=op_openparlamento --act-types=3,4,5,6 --delete --limit=5000 ../corpora/opp_interrogazioni training
+    python generate_corpus.py --db=op_openparlamento --act-types=3,4,5,6 --delete --offset=5001 --limit=5000 ../corpora/opp_interrogazioni test
+    pushd ../corpora/opp_interrogazioni/
+    cat cats_training.txt cats_test.txt > cats.txt
+    popd
+
+    python generate_corpus.py --db=op_openparlamento --macro --act-types=2,3,4,5,6 --delete --limit=5000 ../corpora/opp_interrogazioni_macro/ training
+    python generate_corpus.py --db=op_openparlamento --macro --act-types=2,3,4,5,6 --delete --limit=5000 --offset=5000 ../corpora/opp_interrogazioni_macro/ test
+    pushd ../corpora/opp_interrogazioni_macro/
+    cat cats_training.txt cats_test.txt > cats.txt
+    popd
 
 TODO: the acts and contents are directly fetched from a Mysql DB.
 Accessing them through an API would decouple the script, avoiding the necessity
@@ -132,6 +142,9 @@ def get_documents_text(act_id, **kwargs):
     """
     db_conn = kwargs['db']
 
+    italian_stops = set(stopwords.words('italian'))
+
+
     cursor = db_conn.cursor(MySQLdb.cursors.DictCursor)
     sql = """
         select d.testo
@@ -145,11 +158,18 @@ def get_documents_text(act_id, **kwargs):
     testo = u''
     for row in rows:
         # strip html tags from texts, if present
-        testo += unicode(strip_tags(row['testo']))
+        testo += unicode(
+            strip_tags(
+                row['testo']
+            )
+        )
 
-        # TODO: remove stopwords
+    # remove stopwords
+    tokenizer = RegexpTokenizer("[\w]+")
+    words = tokenizer.tokenize(testo)
+    filtered_testo = " ".join([word for word in words if word.lower() not in italian_stops])
 
-    return testo
+    return filtered_testo
 
 
 ##
@@ -201,18 +221,22 @@ def generate(**kwargs):
 
         # only writes acts tags in cats_* file if there are some
         if tags_ids_list:
-            f.write(u"{0}/{1},{2}\n".format(prefix, act_id, tags_ids_list))
 
             # extract all texts from documents' acts
             testo = get_documents_text(act_id, **kwargs)
 
-            # build text file name
-            text_file_path = os.path.join(prefixed_path, str(act_id))
+            # write to files only if there is a testo
+            if testo:
+                # write act's tags in file
+                f.write(u"{0}/{1},{2}\n".format(prefix, act_id, tags_ids_list))
 
-            # open text file in append mode, append content to it, close the file
-            tf = codecs.open(text_file_path, "a", "utf-8")
-            tf.write(testo)
-            tf.close()
+                # build text file name
+                text_file_path = os.path.join(prefixed_path, str(act_id))
+
+                # open text file in append mode, append content to it, close the file
+                tf = codecs.open(text_file_path, "a", "utf-8")
+                tf.write(testo)
+                tf.close()
     f.close()
 
 

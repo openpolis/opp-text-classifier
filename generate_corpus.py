@@ -22,17 +22,8 @@ usage::
 
 
 examples::
-    python generate_corpus.py --db=op_openparlamento --act-types=3,4,5,6 --delete --limit=5000 ../corpora/opp_interrogazioni training
-    python generate_corpus.py --db=op_openparlamento --act-types=3,4,5,6 --delete --offset=5001 --limit=5000 ../corpora/opp_interrogazioni test
-    pushd ../corpora/opp_interrogazioni/
-    cat cats_training.txt cats_test.txt > cats.txt
-    popd
-
-    python generate_corpus.py --db=op_openparlamento --macro --act-types=2,3,4,5,6 --delete --limit=5000 ../corpora/opp_interrogazioni_macro/ training
-    python generate_corpus.py --db=op_openparlamento --macro --act-types=2,3,4,5,6 --delete --limit=5000 --offset=5000 ../corpora/opp_interrogazioni_macro/ test
-    pushd ../corpora/opp_interrogazioni_macro/
-    cat cats_training.txt cats_test.txt > cats.txt
-    popd
+    python generate_corpus.py --db=op_openparlamento --act-types=3,4,5,6 --delete --limit=5000 ../corpora/opp_interrogazioni
+    python generate_corpus.py --db=op_openparlamento --macro --act-types=2,3,4,5,6 --delete --limit=5000 ../corpora/opp_interrogazioni_macro
 
 TODO: the acts and contents are directly fetched from a Mysql DB.
 Accessing them through an API would decouple the script, avoiding the necessity
@@ -180,34 +171,31 @@ def get_documents_text(act_id, **kwargs):
 def generate(**kwargs):
     """
     Extract texts from acts' documents in db and produces files in the specified prefixed path
-    Write a cats_PREFIX.txt categories file
+    Write a cats.txt categories file
     PATH
-    |- PREFIX
-    |  |- ID1
-    |  |- ID2
-    |  |- ...
-    |- cats_PREFIX.txt
+    |- ID1
+    |- ID2
+    |- ...
+    |- cats.txt
     """
     path = kwargs['path']
-    prefix = kwargs['prefix']
     macro = kwargs['macro']
 
-    prefixed_path = os.path.join(path, prefix)
-    if not os.path.exists(prefixed_path):
-        os.mkdir(prefixed_path)
+    if not os.path.exists(path):
+        os.mkdir(path)
 
-    # delete all files under prefixed_path, if required
+    # delete all files under path, if required
     if kwargs['delete']:
-        for the_file in os.listdir(prefixed_path):
-            file_path = os.path.join(prefixed_path, the_file)
+        for the_file in os.listdir(path):
+            file_path = os.path.join(path, the_file)
             try:
                 if os.path.isfile(file_path):
                     os.unlink(file_path)
             except Exception, e:
                 print e
 
-    # write tags on cats_prefix.txt file
-    cat_file = os.path.join(path, "cats_{0}.txt".format(prefix))
+    # write tags on cats.txt file
+    cat_file = os.path.join(path, "cats.txt")
     f = codecs.open(cat_file, "w", "utf-8")
 
     for c, act_id in enumerate(get_acts(**kwargs)):
@@ -219,7 +207,7 @@ def generate(**kwargs):
         else:
             tags_ids_list = ",".join(get_tags(act_id, **kwargs))
 
-        # only writes acts tags in cats_* file if there are some
+        # only writes acts tags in cats file if there are some
         if tags_ids_list:
 
             # extract all texts from documents' acts
@@ -228,10 +216,10 @@ def generate(**kwargs):
             # write to files only if there is a testo
             if testo:
                 # write act's tags in file
-                f.write(u"{0}/{1},{2}\n".format(prefix, act_id, tags_ids_list))
+                f.write(u"{0},{1}\n".format(act_id, tags_ids_list))
 
                 # build text file name
-                text_file_path = os.path.join(prefixed_path, str(act_id))
+                text_file_path = os.path.join(path, str(act_id))
 
                 # open text file in append mode, append content to it, close the file
                 tf = codecs.open(text_file_path, "a", "utf-8")
@@ -278,9 +266,6 @@ def main():
     parser.add_argument("path",
                         help="where produced files and categories will be written, an absolute path")
 
-    parser.add_argument("prefix",
-                        help="prefix used for building different sets (training, test, dev1, dev2)")
-
     args = parser.parse_args()
 
 
@@ -297,7 +282,7 @@ def main():
     # build kwargs list for functions
     kwargs = {
         'act_types_ids': args.act_types_ids,
-        'path': args.path, 'prefix': args.prefix,
+        'path': args.path,
         'delete': args.delete,
         'macro': args.macro,
         'limit': args.limit, 'offset': args.offset,
